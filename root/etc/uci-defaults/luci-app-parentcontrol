@@ -7,11 +7,11 @@ uci -q batch <<-EOF >/dev/null
 	commit ucitrack
 EOF
 
-uci delete firewall.parentcontrol
-uci set firewall.parentcontrol=include
-uci set firewall.parentcontrol.type=script
-uci set firewall.parentcontrol.path=/etc/parentcontrol.include
-uci set firewall.parentcontrol.reload=1
+uci -q delete firewall.parentcontrol
+uci -q set firewall.parentcontrol=include
+uci -q set firewall.parentcontrol.type=script
+uci -q set firewall.parentcontrol.path=/etc/parentcontrol.include
+uci -q set firewall.parentcontrol.reload=1
 uci commit firewall
 rm -f /tmp/luci-indexcache
 exit 0
