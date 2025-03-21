@@ -5,7 +5,6 @@ on:
   push:
     tags:
       - "*"
-
 jobs:
   release:
     name: Build and Release for ${{ matrix.arch }}
@@ -17,7 +16,6 @@ jobs:
           - arch: x86_64
             sdk_url_path: https://downloads.openwrt.org/snapshots/targets/x86/64
             sdk_name: -sdk-x86-64_
-
     env:
       PACKAGE_NAME: luci-app-parentcontrol
       SDK_URL_PATH: ${{ matrix.sdk_url_path }}
@@ -32,12 +30,10 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -yq gettext libncurses5-dev rsync xsltproc wget file zstd
-
       - name: Create Directories
         run: |
           echo "SDK_HOME=$(mktemp -d)" >> $GITHUB_ENV
           echo "SDK_DL_DIR=$(mktemp -d)" >> $GITHUB_ENV
-
       - name: Prepare Build Environment
         run: |
           source $GITHUB_ENV
@@ -56,11 +52,6 @@ jobs:
           fi
           unzstd "$SDK_DL_DIR/$SDK_FILE" -o "${SDK_FILE%.zst}.tar"
           tar -xf "${SDK_FILE%.zst}.tar" -C "$SDK_HOME" --strip=1 || { echo "Failed to extract SDK"; exit 1; }
-
-      - name: Create Release Tag
-        if: github.event_name == 'push' && github.ref_type == 'tag'
-        run: git tag ${{ github.ref }}
-      
       - name: Build Packages
         run: |
           source $GITHUB_ENV
@@ -72,17 +63,9 @@ jobs:
           make package/${PACKAGE_NAME}/{clean,download,compile} V=s
           find "$SDK_HOME/bin" -type f -name "${PACKAGE_NAME}_*.ipk" \
            -exec cp -f {} "${GITHUB_WORKSPACE}" \;
-
       - name: Release and Upload Assets
-        if: github.event_name == 'push' && github.ref_type == 'tag'
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: ${{ github.ref }}
           files: "*.ipk"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Clean up
-        run: |
-          rm -rf "$SDK_HOME"
-          rm -rf "$SDK_DL_DIR"
