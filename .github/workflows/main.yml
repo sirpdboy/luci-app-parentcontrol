@@ -1,71 +1,46 @@
-name: Build and Release
+name: Build packages
 
 on:
-  workflow_dispatch:
   push:
     tags:
-      - "*"
+      - v*
+
 jobs:
-  release:
-    name: Build and Release for ${{ matrix.arch }}
+  build:
+    name: Build ${{ matrix.arch }}
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - arch: x86_64
-            sdk_url_path: https://downloads.openwrt.org/snapshots/targets/x86/64
-            sdk_name: -sdk-x86-64_
-    env:
-      PACKAGE_NAME: luci-app-parentcontrol
-      SDK_URL_PATH: ${{ matrix.sdk_url_path }}
-      SDK_NAME: ${{ matrix.sdk_name }}
-      ARCH: ${{ matrix.arch }}
-      CACHE_DIR: ~/cache
+        arch:
+          - aarch64_generic
+          - mipsel_24kc
+          - x86_64
 
     steps:
-      - uses: actions/checkout@v2
-
-      - name: Install Dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -yq gettext libncurses5-dev rsync xsltproc wget file zstd
-      - name: Create Directories
-        run: |
-          echo "SDK_HOME=$(mktemp -d)" >> $GITHUB_ENV
-          echo "SDK_DL_DIR=$(mktemp -d)" >> $GITHUB_ENV
-      - name: Prepare Build Environment
-        run: |
-          source $GITHUB_ENV
-          cd "$SDK_DL_DIR"
-          if ! ( wget -q -O - "$SDK_URL_PATH/sha256sums" | grep -- "$SDK_NAME" > sha256sums.small 2>/dev/null ) ; then
-            echo "Cannot find ${SDK_NAME} file in sha256sums."
-            exit 1
-          fi
-          SDK_FILE="$(awk '{print $2}' sha256sums.small | sed 's/*//g')"
-          wget -q -O "$SDK_DL_DIR/$SDK_FILE" "$SDK_URL_PATH/$SDK_FILE"
-          echo "Downloaded file type:"
-          file "$SDK_DL_DIR/$SDK_FILE"
-          if ! sha256sum -c sha256sums.small >/dev/null 2>&1 ; then
-            echo "SDK cannot be verified!"
-            exit 1
-          fi
-          unzstd "$SDK_DL_DIR/$SDK_FILE" -o "${SDK_FILE%.zst}.tar"
-          tar -xf "${SDK_FILE%.zst}.tar" -C "$SDK_HOME" --strip=1 || { echo "Failed to extract SDK"; exit 1; }
-      - name: Build Packages
-        run: |
-          source $GITHUB_ENV
-          cd "$SDK_HOME"
-          ./scripts/feeds update -a > /dev/null 2>&1
-          ./scripts/feeds install -a > /dev/null 2>&1
-          cp -r "${GITHUB_WORKSPACE}" "package/$PACKAGE_NAME"
-          make defconfig > /dev/null 2>&1
-          make package/${PACKAGE_NAME}/{clean,download,compile} V=s
-          find "$SDK_HOME/bin" -type f -name "${PACKAGE_NAME}_*.ipk" \
-           -exec cp -f {} "${GITHUB_WORKSPACE}" \;
-      - name: Release and Upload Assets
-        uses: softprops/action-gh-release@v1
+      - uses: actions/checkout@main
         with:
-          files: "*.ipk"
+          fetch-depth: 0
+
+      - name: Building packages
+        uses: sirpdboy/gh-action-sdk@main
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ARCH: ${{ matrix.arch }}-openwrt-24.10
+          FEEDNAME: packages_ci
+          PACKAGES: luci-app-parentcontrol
+          NO_REFRESH_CHECK: true
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.arch }}
+          path: bin/packages/${{ matrix.arch }}/packages_ci/*.ipk
+
+      - name: Upload packages
+        uses: ncipollo/release-action@v1
+        with:
+          name: ${{ github.ref_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+          allowUpdates: true
+          replacesArtifacts: true
+          artifacts: "bin/packages/${{ matrix.arch }}/packages_ci/*.ipk"
