@@ -17,6 +17,14 @@ https://github.com/sirpdboy/luci-app-parentcontrol
 参考来源：
 https://github.com/Lienol/openwrt-package/tree/main/luci-app-control-weburl
 
+## 界面
+
+![screenshots](./doc/parentcontrol1.png)
+
+![screenshots](./doc/parentcontrol2.png)
+
+![screenshots](./doc/parentcontrol3.png)
+
 # My other project
 
 - 路由安全看门狗 ：https://github.com/sirpdboy/luci-app-watchdog
